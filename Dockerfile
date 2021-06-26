@@ -8,4 +8,3 @@ RUN apt-get update && \
     echo "print('dummy command for delta download')" > dummy.py && \
     /usr/local/bin/spark-submit ${PYSPARK_ARGS} dummy.py && \ 
     rm dummy.py
-USER deltauser

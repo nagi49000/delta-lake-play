@@ -1,0 +1,8 @@
+version: '3'
+
+services:
+  pyspark-openjdk11:
+    image: pyspark-openjdk11:latest
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
