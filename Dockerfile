@@ -5,6 +5,7 @@ WORKDIR /builder
 RUN apt-get update && \
     apt-get install -y python3 python3-pip && \
     pip3 install pyspark && \
-    echo "print('dummy command for delta download')" > dummy.py && \
+    pip3 install delta-spark && \
+    echo "print('dummy command for delta libs download')" > dummy.py && \
     /usr/local/bin/spark-submit ${PYSPARK_ARGS} dummy.py && \ 
     rm dummy.py
