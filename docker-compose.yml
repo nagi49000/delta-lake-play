@@ -6,3 +6,5 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/data
+    ports:
+      - "8000:8000"
