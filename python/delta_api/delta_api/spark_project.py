@@ -1,7 +1,8 @@
 import pyspark
-from pyspark.sql.types import StructType,StructField, StringType, IntegerType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 import delta
 import os
+
 
 def get_spark():
     """ returns a SparkSession """
@@ -19,7 +20,7 @@ def get_or_create_names_table(spark, delta_dir):
 
         retrieve, or (on fail), create and retrieve DeltaTable
 
-        returns a DeltaTable
+        returns a tuple of (DeltaTable, path), where path is to the table on disk
     """
     delta_table_location = os.path.join(delta_dir, "names-delta-table")
     try:
@@ -27,11 +28,11 @@ def get_or_create_names_table(spark, delta_dir):
     except pyspark.sql.utils.AnalysisException:
         schema = StructType([
             StructField("id", IntegerType(), False),
-            StructField("firstname",StringType(),False),
-            StructField("lastname",StringType(),False)
+            StructField("firstname", StringType(), False),
+            StructField("lastname", StringType(), False)
         ])
-        data=[(1, "James", "Bond"), (2, "Alice", "Rogers"), (3, "Joe", "Bloggs")]
+        data = [(1, "James", "Bond"), (2, "Alice", "Rogers"), (3, "Joe", "Bloggs")]
         df = spark.createDataFrame(data=data, schema=schema)
         df.write.format("delta").save(delta_table_location)
         table = delta.tables.DeltaTable.forPath(spark, delta_table_location)
-    return table
+    return table, delta_table_location
