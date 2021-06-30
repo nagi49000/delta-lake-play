@@ -49,9 +49,10 @@ def create_app(delta_dir):
         # convert to json and back to make json compliant
         return json.loads(df.set_index('version').to_json())
 
-    @app.post("/get_table")
+    @app.post("/get_table", response_model=GetTableResponse)
     async def get_table(r: GetTableRequest):
-        df = names_table.toDF().toPandas()
+        sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
+        df = sdf.toPandas()
         return {'version': r.version, 'data': df.to_dict(orient='records')}
 
     @app.put("/merge_to_table")
