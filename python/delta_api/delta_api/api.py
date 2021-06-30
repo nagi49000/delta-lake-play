@@ -51,12 +51,14 @@ def create_app(delta_dir):
 
     @app.post("/get_table", response_model=GetTableResponse)
     async def get_table(r: GetTableRequest):
+        logging.debug("/get_table")
         sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
         df = sdf.toPandas()
         return {'version': r.version, 'data': df.to_dict(orient='records')}
 
     @app.put("/merge_to_table")
     async def merge_to_table(r: MergeToTableRequest):
+        logging.debug("/merge_to_table")
         sdf = spark.createDataFrame(r.data)
         names_table.alias("names").merge(
             source=sdf.alias("updates"),
