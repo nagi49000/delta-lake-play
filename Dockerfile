@@ -10,4 +10,4 @@ RUN apt-get update && \
     /usr/local/bin/spark-submit ${PYSPARK_ARGS} dummy.py && \
     rm dummy.py
 COPY ./python/delta_api/delta_api api
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "api.api_app:app"]
+CMD ["gunicorn", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--log-level", "debug", "api.api_app:app"]
