@@ -30,6 +30,10 @@ class GetTableResponse(BaseModel):
     data: List[TableRow]
 
 
+class DeleteFromTableRequest(BaseModel):
+    ids: List[int]
+
+
 def create_app(delta_dir):
     spark = get_spark()
     app = FastAPI()
@@ -46,7 +50,7 @@ def create_app(delta_dir):
         df = names_table.history().toPandas()
         # make timestamps human readable
         df['timestamp'] = df['timestamp'].astype(str)
-        # convert to json and back to make json compliant
+        # convert to json and back to make json compliant dict
         return json.loads(df.set_index('version').to_json())
 
     @app.post("/get_table", response_model=GetTableResponse)
@@ -71,5 +75,10 @@ def create_app(delta_dir):
             "firstname": "updates.firstname",
             "lastname": "updates.lastname"
         }).execute()
+
+    @app.delete("/delete_from_table")
+    async def delete_from_table(r: DeleteFromTableRequest):
+        logging.debug("/delete_from_table")
+        names_table.delete(f"id IN {tuple(r.ids)}")
 
     return app
