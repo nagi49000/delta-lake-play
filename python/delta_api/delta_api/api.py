@@ -47,7 +47,7 @@ def create_app(delta_dir):
 
     @app.get("/hello_world", response_model=HelloWorldResponse)
     async def hello_world():
-        logger.debug('/hello_world')
+        logger.debug("/hello_world")
         return {"message": "Hello World"}
 
     @app.get("/get_table_history")
@@ -55,16 +55,22 @@ def create_app(delta_dir):
         logger.debug("/get_table_history")
         df = names_table.history().toPandas()
         # make timestamps human readable
-        df['timestamp'] = df['timestamp'].astype(str)
+        df["timestamp"] = df["timestamp"].astype(str)
         # convert to json and back to make a json compliant dict
-        return json.loads(df.set_index('version').to_json())
+        return json.loads(df.set_index("version").to_json())
 
     @app.post("/get_table", response_model=GetTableResponse)
     async def get_table(r: GetTableRequest):
         logger.debug("/get_table")
-        sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
+        latest_version = names_table.history().agg({"version": "max"}).collect()[0][0]
+        if 0 <= r.version <= latest_version:
+            sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
+            version = r.version
+        else:  # get latest version
+            sdf = names_table.toDF()
+            version = latest_version
         df = sdf.toPandas()
-        return {'version': r.version, 'data': df.to_dict(orient='records')}
+        return {"version": version, "data": df.to_dict(orient="records")}
 
     @app.put("/merge_to_table")
     async def merge_to_table(r: MergeToTableRequest):
