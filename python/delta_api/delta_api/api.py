@@ -1,6 +1,10 @@
 import json
 import logging
-from typing import List
+from typing import (
+    List,
+    Union
+)
+import datetime
 from fastapi import FastAPI
 from fastapi.logger import logger
 from pydantic import BaseModel
@@ -10,10 +14,6 @@ from .spark_project import get_or_create_names_table
 
 class HelloWorldResponse(BaseModel):
     message: str
-
-
-class GetTableRequest(BaseModel):
-    version: int
 
 
 class TableRow(BaseModel):
@@ -26,13 +26,16 @@ class MergeToTableRequest(BaseModel):
     data: List[TableRow]
 
 
-class GetTableResponse(BaseModel):
-    version: int
-    data: List[TableRow]
-
-
 class DeleteFromTableRequest(BaseModel):
     ids: List[int]
+
+
+class GetTableRequest(BaseModel):
+    version: Union[int, datetime.datetime] = -1  # default to latest
+
+
+class GetTableResponse(GetTableRequest):
+    data: List[TableRow]
 
 
 def create_app(delta_dir):
@@ -63,12 +66,17 @@ def create_app(delta_dir):
     async def get_table(r: GetTableRequest):
         logger.debug("/get_table")
         latest_version = names_table.history().agg({"version": "max"}).collect()[0][0]
-        if 0 <= r.version <= latest_version:
-            sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
+
+        if isinstance(r.version, int):
+            if 0 <= r.version <= latest_version:
+                sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
+                version = r.version
+            else:  # get latest version
+                sdf = names_table.toDF()
+                version = latest_version
+        else:  # assume datetime
+            sdf = spark.read.format("delta").option("timestampAsOf", r.version).load(names_table_location)
             version = r.version
-        else:  # get latest version
-            sdf = names_table.toDF()
-            version = latest_version
         df = sdf.toPandas()
         return {"version": version, "data": df.to_dict(orient="records")}
 
