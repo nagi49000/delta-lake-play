@@ -1,11 +1,15 @@
 import json
 import logging
+import datetime
 from typing import (
     List,
     Union
 )
-import datetime
-from fastapi import FastAPI
+from py4j.protocol import Py4JJavaError
+from fastapi import (
+    FastAPI,
+    HTTPException
+)
 from fastapi.logger import logger
 from pydantic import BaseModel
 from .spark_project import get_spark
@@ -31,7 +35,7 @@ class DeleteFromTableRequest(BaseModel):
 
 
 class GetTableRequest(BaseModel):
-    version: Union[int, datetime.datetime] = -1  # default to latest
+    version: Union[int, datetime.datetime] = None  # default to latest
 
 
 class GetTableResponse(GetTableRequest):
@@ -65,18 +69,19 @@ def create_app(delta_dir):
     @app.post("/get_table", response_model=GetTableResponse)
     async def get_table(r: GetTableRequest):
         logger.debug("/get_table")
-        latest_version = names_table.history().agg({"version": "max"}).collect()[0][0]
-
-        if isinstance(r.version, int):
-            if 0 <= r.version <= latest_version:
+        try:
+            if r.version is None:
+                sdf = names_table.toDF()
+                version = names_table.history().agg({"version": "max"}).collect()[0][0]
+            elif isinstance(r.version, int):
                 sdf = spark.read.format("delta").option("versionAsOf", r.version).load(names_table_location)
                 version = r.version
-            else:  # get latest version
-                sdf = names_table.toDF()
-                version = latest_version
-        else:  # assume datetime
-            sdf = spark.read.format("delta").option("timestampAsOf", r.version).load(names_table_location)
-            version = r.version
+            else:  # assume datetime
+                sdf = spark.read.format("delta").option("timestampAsOf", r.version).load(names_table_location)
+                version = r.version
+        except Py4JJavaError as e:
+            logger.error(f"/get_table: {e}")
+            raise HTTPException(status_code=500, detail=str(e).split("\n\tat")[0])  # split of Java traceback
         df = sdf.toPandas()
         return {"version": version, "data": df.to_dict(orient="records")}
 
